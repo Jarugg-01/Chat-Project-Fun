@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoiceLink | P2P Voice Room</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.0/lucide.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <style>
+        :root {
+            --color-slate: #56536e;
+            --color-taupe: #7e6f5f;
+            --color-grey: #746f73;
+            --color-midnight: #030b19;
+            --color-cloud: #d2dce7;
+        }
+
+        body {
+            background-color: var(--color-cloud);
+            color: var(--color-midnight);
+        }
+
+        .visualizer-container {
+            height: 48px;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+        .bar {
+            flex: 1;
+            background: var(--color-slate);
+            min-height: 2px;
+            border-radius: 1px;
+            transition: height 0.1s ease;
+        }
+        .remote-bar { background: var(--color-taupe); }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(0.98); }
+        }
+        .anim-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+        .user-tag {
+            background: white;
+            border: 1px solid rgba(86, 83, 110, 0.15);
+            padding: 8px 12px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="min-h-screen font-sans flex items-center justify-center p-4">
+
+    <div class="max-w-sm w-full bg-white rounded-[2.5rem] shadow-[0_20px_50px_rgba(3,11,25,0.15)] border border-[#56536e]/10 overflow-hidden">
+        <!-- Header -->
+        <div class="p-8 pb-4 text-center">
+            <h1 class="text-3xl font-black text-[#030b19] tracking-tight">VoiceLink</h1>
+            <p class="text-[#746f73] text-sm font-medium mt-1">Private Audio Connectivity</p>
+        </div>
+
+        <!-- Visualizers -->
+        <div class="px-8 py-4 flex items-center justify-around bg-[#d2dce7]/30 border-y border-[#56536e]/10">
+            <div class="text-center">
+                <p class="text-[9px] font-black text-[#746f73] uppercase tracking-widest mb-2">My Mic</p>
+                <div id="localVisualizer" class="visualizer-container w-24 px-1"></div>
+            </div>
+            <div class="h-10 w-px bg-[#56536e]/20"></div>
+            <div class="text-center">
+                <p class="text-[9px] font-black text-[#746f73] uppercase tracking-widest mb-2">Peer Audio</p>
+                <div id="remoteVisualizer" class="visualizer-container w-24 px-1"></div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="p-8 space-y-6">
+            <!-- Connection State -->
+            <div id="statusContainer" class="text-center">
+                <span id="statusBadge" class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-[#d2dce7] text-[#56536e]">
+                    Offline
+                </span>
+            </div>
+
+            <!-- Setup View -->
+            <div id="setupView" class="space-y-5">
+                <div class="space-y-2">
+                    <p class="text-[10px] font-bold text-[#746f73] uppercase tracking-widest px-1">Your Name</p>
+                    <input type="text" id="usernameInput" maxlength="15" class="w-full p-4 bg-[#d2dce7]/20 border border-[#56536e]/20 rounded-2xl text-lg font-bold text-[#030b19] focus:ring-4 focus:ring-[#56536e]/10 focus:border-[#56536e] outline-none transition-all" placeholder="e.g. Alex">
+                </div>
+
+                <div class="space-y-2">
+                    <p class="text-[10px] font-bold text-[#746f73] uppercase tracking-widest px-1">Room Name</p>
+                    <input type="text" id="roomInput" class="w-full p-4 bg-[#d2dce7]/20 border border-[#56536e]/20 rounded-2xl text-lg font-mono font-bold text-[#030b19] focus:ring-4 focus:ring-[#56536e]/10 focus:border-[#56536e] outline-none transition-all" placeholder="e.g. boardroom">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                    <button id="btnHost" class="bg-[#030b19] hover:bg-black text-[#d2dce7] font-bold h-24 rounded-2xl transition shadow-lg flex flex-col items-center justify-center gap-2">
+                        <i data-lucide="crown" class="w-5 h-5"></i>
+                        <span class="text-xs uppercase tracking-widest">Host</span>
+                    </button>
+                    <button id="btnJoin" class="bg-[#56536e] hover:bg-[#746f73] text-[#d2dce7] font-bold h-24 rounded-2xl transition shadow-lg flex flex-col items-center justify-center gap-2">
+                        <i data-lucide="users" class="w-5 h-5"></i>
+                        <span class="text-xs uppercase tracking-widest">Join</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Active View -->
+            <div id="activeView" class="hidden space-y-6">
+                <div class="p-4 bg-[#d2dce7]/30 border border-[#56536e]/20 rounded-2xl space-y-3">
+                    <div class="flex items-center justify-between">
+                        <p class="text-[9px] font-black text-[#56536e] uppercase tracking-widest">Active Room: <span id="displayRoomName" class="text-[#030b19] ml-1">----</span></p>
+                        <div id="statusDot" class="w-3 h-3 rounded-full bg-[#746f73]"></div>
+                    </div>
+                    
+                    <!-- User List -->
+                    <div class="space-y-2">
+                        <p class="text-[8px] font-bold text-[#746f73] uppercase tracking-widest">Users in Room</p>
+                        <div id="userList" class="space-y-2">
+                            <div class="user-tag">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                <span id="localUserNameDisplay" class="truncate">Me</span>
+                                <span class="text-[8px] ml-auto text-[#746f73] bg-[#d2dce7] px-1.5 py-0.5 rounded">YOU</span>
+                            </div>
+                            <div id="remoteUserTag" class="user-tag opacity-40 italic">
+                                <span class="w-2 h-2 rounded-full bg-[#746f73]"></span>
+                                <span id="remoteUserNameDisplay">Waiting...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="btnLeave" class="w-full bg-[#d2dce7]/50 text-[#030b19] hover:bg-red-50 hover:text-red-700 border border-[#56536e]/20 font-bold py-4 rounded-2xl transition flex items-center justify-center gap-2 text-center">
+                    <i data-lucide="log-out" class="w-5 h-5"></i> Leave Room
+                </button>
+            </div>
+        </div>
+
+        <div class="px-8 pb-8 text-center">
+            <p class="text-[9px] font-bold text-[#746f73] uppercase tracking-widest">P2P PeerJS • Static Multi-User Sync</p>
+        </div>
+    </div>
+
+    <audio id="remoteAudio" autoplay></audio>
+
+    <script>
+        window.addEventListener('load', function() {
+            const refreshIcons = () => { if (window.lucide) window.lucide.createIcons(); };
+            refreshIcons();
+
+            const statusBadge = document.getElementById('statusBadge');
+            const roomInput = document.getElementById('roomInput');
+            const usernameInput = document.getElementById('usernameInput');
+            const displayRoomName = document.getElementById('displayRoomName');
+            const setupView = document.getElementById('setupView');
+            const activeView = document.getElementById('activeView');
+            const remoteAudio = document.getElementById('remoteAudio');
+            const statusDot = document.getElementById('statusDot');
+            const localUserNameDisplay = document.getElementById('localUserNameDisplay');
+            const remoteUserNameDisplay = document.getElementById('remoteUserNameDisplay');
+            const remoteUserTag = document.getElementById('remoteUserTag');
+
+            let peer = null;
+            let localStream = null;
+            let currentCall = null;
+            let dataConn = null;
+            let roomName = "";
+            let userName = "";
+            let userRole = ""; 
+            let heartbeatInterval = null;
+
+            async function getMedia() {
+                if (localStream) return localStream;
+                try {
+                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    visualize(localStream, 'localVisualizer');
+                    return localStream;
+                } catch (err) {
+                    alert("Microphone access is required.");
+                    throw err;
+                }
+            }
+
+            function updateConnectionUI(connected, peerName = null) {
+                if (connected) {
+                    statusDot.className = "w-3 h-3 rounded-full bg-[#56536e] anim-pulse shadow-[0_0_8px_rgba(86,83,110,0.4)]";
+                    statusBadge.innerText = "Live";
+                    statusBadge.className = "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-[#56536e]/10 text-[#56536e]";
+                    if (peerName) {
+                        remoteUserNameDisplay.innerText = peerName;
+                        remoteUserTag.className = "user-tag";
+                        remoteUserTag.querySelector('span').className = "w-2 h-2 rounded-full bg-[#56536e]";
+                    }
+                } else {
+                    statusDot.className = "w-3 h-3 rounded-full bg-[#746f73]";
+                    statusBadge.innerText = "Ready";
+                    statusBadge.className = "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-[#d2dce7] text-[#56536e]";
+                    remoteUserNameDisplay.innerText = "Waiting...";
+                    remoteUserTag.className = "user-tag opacity-40 italic";
+                    remoteUserTag.querySelector('span').className = "w-2 h-2 rounded-full bg-[#746f73]";
+                }
+            }
+
+            function setupDataConnection(conn) {
+                dataConn = conn;
+                
+                // When connected, send our name
+                dataConn.on('open', () => {
+                    dataConn.send({ type: 'HANDSHAKE', name: userName });
+                });
+
+                dataConn.on('data', (data) => {
+                    if (data.type === 'HANDSHAKE') {
+                        updateConnectionUI(true, data.name);
+                    }
+                });
+
+                dataConn.on('close', () => {
+                    updateConnectionUI(false);
+                    dataConn = null;
+                });
+            }
+
+            function handleCall(call) {
+                if (currentCall) currentCall.close();
+                currentCall = call;
+
+                call.on('stream', (stream) => {
+                    remoteAudio.srcObject = stream;
+                    remoteAudio.play().catch(() => {});
+                    visualize(stream, 'remoteVisualizer');
+                    // We don't update name yet, that comes via Data Channel
+                });
+
+                const cleanup = () => {
+                    if (currentCall === call) {
+                        currentCall = null;
+                        updateConnectionUI(false);
+                        const bars = document.querySelectorAll('#remoteVisualizer .bar');
+                        bars.forEach(b => b.style.height = '2px');
+                    }
+                };
+
+                call.on('close', cleanup);
+                call.on('error', cleanup);
+            }
+
+            async function startSession(roleType) {
+                roomName = roomInput.value.trim().toLowerCase();
+                userName = usernameInput.value.trim() || "Anonymous";
+                
+                if (!roomName) return alert("Please enter a room name.");
+
+                userRole = roleType;
+                const peerId = `${roomName}-${userRole}`;
+                
+                setupView.classList.add('hidden');
+                activeView.classList.remove('hidden');
+                displayRoomName.innerText = roomName;
+                localUserNameDisplay.innerText = userName;
+
+                peer = new Peer(peerId);
+
+                peer.on('open', () => {
+                    updateConnectionUI(false);
+                    if (userRole === 'join') {
+                        heartbeatInterval = setInterval(async () => {
+                            if (!currentCall && peer && !peer.destroyed) {
+                                try {
+                                    const stream = await getMedia();
+                                    const call = peer.call(`${roomName}-host`, stream);
+                                    if (call) handleCall(call);
+                                    
+                                    // Also initiate data connection for name sync
+                                    if (!dataConn) {
+                                        const conn = peer.connect(`${roomName}-host`);
+                                        setupDataConnection(conn);
+                                    }
+                                } catch (e) {}
+                            }
+                        }, 3000);
+                    }
+                });
+
+                // Listen for Data Connections (Incoming)
+                peer.on('connection', (conn) => {
+                    setupDataConnection(conn);
+                });
+
+                // Listen for Calls (Incoming)
+                peer.on('call', async (call) => {
+                    try {
+                        const stream = await getMedia();
+                        call.answer(stream);
+                        handleCall(call);
+                    } catch (e) {
+                        console.error("Answer failed", e);
+                    }
+                });
+
+                peer.on('error', (err) => {
+                    if (err.type === 'id-taken') {
+                        alert(`A ${userRole} is already in this room.`);
+                        location.reload();
+                    }
+                });
+            }
+
+            document.getElementById('btnHost').onclick = () => startSession('host');
+            document.getElementById('btnJoin').onclick = () => startSession('join');
+
+            document.getElementById('btnLeave').onclick = () => {
+                if (heartbeatInterval) clearInterval(heartbeatInterval);
+                if (peer) peer.destroy();
+                location.reload();
+            };
+
+            function createBars(container) {
+                for (let i = 0; i < 15; i++) {
+                    const bar = document.createElement('div');
+                    bar.className = 'bar' + (container.id === 'remoteVisualizer' ? ' remote-bar' : '');
+                    container.appendChild(bar);
+                }
+            }
+            createBars(document.getElementById('localVisualizer'));
+            createBars(document.getElementById('remoteVisualizer'));
+
+            async function visualize(stream, containerId) {
+                try {
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    if (ctx.state === 'suspended') await ctx.resume();
+                    const source = ctx.createMediaStreamSource(stream);
+                    const analyser = ctx.createAnalyser();
+                    analyser.fftSize = 64;
+                    source.connect(analyser);
+                    const data = new Uint8Array(analyser.frequencyBinCount);
+                    const bars = document.querySelectorAll(`#${containerId} .bar`);
+                    const update = () => {
+                        if (ctx.state === 'closed') return;
+                        analyser.getByteFrequencyData(data);
+                        for (let i = 0; i < bars.length; i++) {
+                            if (bars[i]) {
+                                bars[i].style.height = `${Math.max(2, (data[i] / 255) * 40)}px`;
+                            }
+                        }
+                        requestAnimationFrame(update);
+                    };
+                    update();
+                } catch (e) {}
+            }
+        });
+    </script>
+</body>
+</html>
