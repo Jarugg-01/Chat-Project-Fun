@@ -251,6 +251,16 @@
                 updateUserList();
                 
                 // Re-establish mesh: In a real app, you'd send a 'reconnect' 
+                Object.values(connectedPeers).forEach(p => {
+                if (p.username) {
+                    const isPeerHost = p.conn && p.conn.peer.includes('-host');
+                    if (isPeerHost) {
+
+                    } else {
+                         connectToPeer(peer.id,true);
+                    }
+                }
+             });
                 // signal to existing peers here.
             });
         
@@ -407,4 +417,5 @@
     </script>
 </body>
 </html>
+
 
