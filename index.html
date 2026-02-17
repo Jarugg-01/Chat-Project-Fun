@@ -120,8 +120,8 @@
                     <p class="text-[--theme-light-grey] text-xs font-medium opacity-60 uppercase tracking-widest">Natural P2P Communication Protocol</p>
                 </div>
                 <div id="join-buttons-container" class="space-y-4 w-full px-12">
-                    <button onclick="handleHost()" class="w-full m3-btn-filled">Open Frequency</button>
-                    <button onclick="showJoinInput()" class="w-full m3-btn-outlined">Secure Connect</button>
+                    <button onclick="handleHost()" class="w-full m3-btn-filled">Host</button>
+                    <button onclick="showJoinInput()" class="w-full m3-btn-outlined">Connect</button>
                 </div>
                 <div class="space-y-4 w-full px-12">
                     <label class="text-[10px] font-black text-[--theme-dark-green] uppercase tracking-[0.4em]">Signal Identity</label>
@@ -310,6 +310,9 @@
             }
         }
 
+        function showJoinInput() { document.getElementById('setup-view').classList.add('hidden'); document.getElementById('join-view').classList.remove('hidden'); }
+        function showSetup() { document.getElementById('join-view').classList.add('hidden'); document.getElementById('setup-view').classList.remove('hidden'); }
+
         // --- CHAT LOGIC ---
         function toggleChat() {
             isChatOpen = !isChatOpen;
@@ -393,4 +396,5 @@
     </script>
 </body>
 </html>
+
 
