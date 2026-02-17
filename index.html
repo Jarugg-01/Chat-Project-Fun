@@ -136,8 +136,9 @@
             // If host, we deterministically set the ID. If joiner, we get a random ID.
             const peerId = isHost ? `mesh-room-${roomName}-host` : undefined;
             peer = new Peer(peerId);
-
+            
             peer.on('open', (id) => {
+                console.log(id);
                 showChatScreen(roomName);
                 updateUserList();
 
@@ -251,14 +252,9 @@
                 updateUserList();
                 
                 // Re-establish mesh: In a real app, you'd send a 'reconnect' 
-                Object.values(connectedPeers).forEach(p => {
-                if (p.username) {
-                    const isPeerHost = p.conn && p.conn.peer.includes('-host');
-                    if (isPeerHost) {
-
-                    } else {
-                         connectToPeer(peer.id,true);
-                    }
+                if (!isHost) {
+                    // Connect to the host to get introduced to the mesh
+                    connectToPeer(newHostId, true);
                 }
              });
                 // signal to existing peers here.
@@ -417,5 +413,6 @@
     </script>
 </body>
 </html>
+
 
 
