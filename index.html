@@ -3,64 +3,277 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VoiceFlow - Simple Mesh Chat</title>
+    <title>VoiceMesh | Simple P2P Chat</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root {
-            --bg: #f4f7f6;
-            --primary: #4a90e2;
-            --text: #333;
-            --white: #ffffff;
+            --primary: #6366f1;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
         }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        .container { background: var(--white); padding: 2rem; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 600px; }
-        .hidden { display: none !important; }
-        
-        /* Join Screen */
-        .join-screen { display: flex; flex-direction: column; gap: 1rem; }
-        input { padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; }
-        button { padding: 12px; border: none; border-radius: 6px; background: var(--primary); color: white; cursor: pointer; font-weight: bold; transition: opacity 0.2s; }
-        button:hover { opacity: 0.9; }
 
-        /* Chat Screen */
-        .chat-screen { display: grid; grid-template-columns: 150px 1fr; gap: 1rem; height: 400px; }
-        #user-list { border-right: 1px solid #eee; padding-right: 10px; font-size: 0.9rem; }
-        .chat-area { display: flex; flex-direction: column; }
-        #messages { flex-grow: 1; overflow-y: auto; border: 1px solid #eee; padding: 10px; margin-bottom: 10px; border-radius: 6px; background: #fafafa; }
-        .message-input-group { display: flex; gap: 5px; }
-        .msg { margin-bottom: 8px; font-size: 0.9rem; }
-        .msg b { color: var(--primary); }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background: var(--card);
+            width: 90%;
+            max-width: 800px;
+            height: 600px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Setup Screen */
+        #setup-screen {
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            justify-content: center;
+            height: 100%;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        input {
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        input:focus { border-color: var(--primary); }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: filter 0.2s;
+        }
+
+        .btn:hover { filter: brightness(1.1); }
+
+        /* Main Chat Screen */
+        #main-screen { display: none; flex-direction: row; height: 100%; }
+
+        #sidebar {
+            width: 200px;
+            border-right: 1px solid #f1f5f9;
+            padding: 20px;
+            background: #fcfcfd;
+        }
+
+        #chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        #messages {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            padding-right: 10px;
+        }
+
+        .message {
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+
+        .message b { color: var(--primary); margin-right: 5px; }
+
+        .user-tag {
+            display: block;
+            padding: 6px 10px;
+            background: #eef2ff;
+            color: var(--primary);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .controls { display: flex; gap: 10px; }
+        .controls input { flex: 1; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div id="join-section" class="join-screen">
-        <h2 style="text-align:center">Join Voice Room</h2>
-        <input type="text" id="username" placeholder="Your Name">
-        <input type="text" id="room-id" placeholder="Room Name (e.g. 'office-chat')">
-        <button onclick="init()">Join Room</button>
+    <div id="setup-screen">
+        <h2 style="margin:0; text-align:center;">VoiceMesh</h2>
+        <div class="input-group">
+            <label>Display Name</label>
+            <input type="text" id="username" placeholder="Enter your name...">
+        </div>
+        <div class="input-group">
+            <label>Room Name</label>
+            <input type="text" id="roomname" placeholder="Enter room ID...">
+        </div>
+        <button class="btn" onclick="startSession()">Enter Room</button>
     </div>
 
-    <div id="chat-section" class="chat-screen hidden">
-        <div id="user-list">
-            <strong>Online</strong>
-            <div id="active-users"></div>
+    <div id="main-screen">
+        <div id="sidebar">
+            <h4 style="margin-top:0">Participants</h4>
+            <div id="user-list"></div>
         </div>
-        <div class="chat-area">
+        <div id="chat-area">
             <div id="messages"></div>
-            <div class="message-input-group">
-                <input type="text" id="chat-input" placeholder="Type a message..." style="flex-grow:1">
-                <button onclick="sendMessage()">Send</button>
+            <div class="controls">
+                <input type="text" id="msgInput" placeholder="Send a message...">
+                <button class="btn" onclick="handleSend()">Send</button>
             </div>
         </div>
     </div>
 </div>
 
-<div id="audio-containers"></div>
+<script>
+    let peer = null;
+    let myStream = null;
+    let connections = {}; // Store data connections
+    let participants = new Set();
+    let userName = "";
+    let roomID = "";
 
-<script src="/Chat-Project-Fun/js/app.js"></script>
+    async function startSession() {
+        userName = document.getElementById('username').value;
+        roomID = document.getElementById('roomname').value;
+
+        if(!userName || !roomID) return alert("Please fill in both fields");
+
+        try {
+            myStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            // Use roomID as the base for the Peer ID to find each other
+            // In a real P2P mesh, we'd use a server to list IDs, but here we use predictable IDs.
+            initPeer();
+        } catch (e) {
+            alert("Microphone access is required.");
+        }
+    }
+
+    function initPeer() {
+        // Create a unique ID for ourselves
+        const myPeerId = roomID + "--" + Math.random().toString(36).substr(2, 9);
+        peer = new Peer(myPeerId);
+
+        peer.on('open', (id) => {
+            document.getElementById('setup-screen').style.display = 'none';
+            document.getElementById('main-screen').style.display = 'flex';
+            
+            addParticipant(userName, true);
+            
+            // Logic: Try to find others by querying the PeerJS server for IDs starting with our roomID
+            // Note: Public PeerJS doesn't allow "listAll". We instead "Broadcast" ourselves 
+            // by attempting to connect to the "Host" (the room name itself).
+            connectToHost();
+        });
+
+        // Handle incoming text data (chat + new peer alerts)
+        peer.on('connection', (conn) => {
+            setupDataHandlers(conn);
+        });
+
+        // Handle incoming voice calls
+        peer.on('call', (call) => {
+            call.answer(myStream);
+            const audio = document.createElement('audio');
+            call.on('stream', (remoteStream) => {
+                audio.srcObject = remoteStream;
+                audio.play();
+            });
+        });
+    }
+
+    function connectToHost() {
+        // Attempt to connect to the "Room ID" directly (assuming someone is the host)
+        // This is a simplified discovery method for serverless P2P.
+        const conn = peer.connect(roomID); 
+        setupDataHandlers(conn);
+    }
+
+    function setupDataHandlers(conn) {
+        conn.on('open', () => {
+            connections[conn.peer] = conn;
+            conn.send({ type: 'join', name: userName });
+            
+            // Also initiate voice call
+            const call = peer.call(conn.peer, myStream);
+            const audio = document.createElement('audio');
+            call.on('stream', (remoteStream) => {
+                audio.srcObject = remoteStream;
+                audio.play();
+            });
+        });
+
+        conn.on('data', (data) => {
+            if(data.type === 'chat') appendMsg(data.name, data.text);
+            if(data.type === 'join') {
+                appendMsg("System", `${data.name} joined.`);
+                addParticipant(data.name);
+            }
+        });
+    }
+
+    function handleSend() {
+        const input = document.getElementById('msgInput');
+        const text = input.value;
+        if(!text) return;
+
+        appendMsg("Me", text);
+        Object.values(connections).forEach(conn => {
+            conn.send({ type: 'chat', name: userName, text: text });
+        });
+        input.value = "";
+    }
+
+    function appendMsg(user, text) {
+        const msgDiv = document.getElementById('messages');
+        const el = document.createElement('div');
+        el.className = 'message';
+        el.innerHTML = `<b>${user}</b> ${text}`;
+        msgDiv.appendChild(el);
+        msgDiv.scrollTop = msgDiv.scrollHeight;
+    }
+
+    function addParticipant(name, isMe = false) {
+        const list = document.getElementById('user-list');
+        const el = document.createElement('div');
+        el.className = 'user-tag';
+        el.innerText = name + (isMe ? " (You)" : "");
+        list.appendChild(el);
+    }
+
+    // Handle Enter key for chat
+    document.getElementById('msgInput')?.addEventListener('keypress', (e) => {
+        if(e.key === 'Enter') handleSend();
+    });
+</script>
+
 </body>
 </html>
-
-
