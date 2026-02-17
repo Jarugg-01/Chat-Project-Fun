@@ -166,6 +166,7 @@
             const remoteUserTag = document.getElementById('remoteUserTag');
 
             let peer = null;
+            let connections = [];
             let localStream = null;
             let currentCall = null;
             let dataConn = null;
@@ -279,8 +280,10 @@
                                     // Also initiate data connection for name sync
                                     if (!dataConn) {
                                         const conn = peer.connect(`${roomName}-host`);
+                                        connections.push(conn);
                                         setupDataConnection(conn);
                                     }
+                                    
                                 } catch (e) {}
                             }
                         }, 3000);
@@ -289,6 +292,7 @@
 
                 // Listen for Data Connections (Incoming)
                 peer.on('connection', (conn) => {
+                    connections.push(conn)
                     setupDataConnection(conn);
                 });
 
@@ -357,5 +361,6 @@
     </script>
 </body>
 </html>
+
 
 
