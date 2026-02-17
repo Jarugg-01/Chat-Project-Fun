@@ -200,8 +200,61 @@
             });
 
             conn.on('close', () => {
+                if (conn.peer.includes('-host')) {
+                    console.log("The Host has left. Starting migration...");
+                    handleHostMigration();
+                }
                 removePeer(conn.peer);
             });
+        }
+
+        function handleHostMigration() {
+            const roomName = document.getElementById('room-input').value.trim();
+            
+            // Get all IDs including my own
+            const allPeerIds = Object.keys(connectedPeers);
+            allPeerIds.push(peer.id);
+            
+            // Sort them alphabetically
+            // (Excluding the old host ID which is already disconnected)
+            const activeIds = allPeerIds.filter(id => !id.includes('-host')).sort();
+        
+            // The first ID in the sorted list is the new leader
+            if (activeIds[0] === peer.id) {
+                console.log("I am the new designated Host. Transitioning...");
+                becomeNewHost(roomName);
+            } else {
+                console.log(`New host will be: ${activeIds[0]}. Waiting for them to initialize.`);
+                
+                // Optional: Wait 3 seconds, then try to connect to the "Host ID" 
+                // which the new leader should have claimed by then.
+                setTimeout(() => {
+                    const hostId = `mesh-room-${roomName}-host`;
+                    connectToPeer(hostId, true);
+                }, 3000);
+            }
+        }
+
+        function becomeNewHost(roomName) {
+            const newHostId = `mesh-room-${roomName}-host`;
+            
+            // We must destroy the old random-ID peer to claim the Host-ID
+            // Note: This will momentarily flicker the connection, but 
+            // it's the only way to "take over" the room's entry point.
+            peer.destroy();
+            
+            peer = new Peer(newHostId);
+            isHost = true;
+        
+            peer.on('open', (id) => {
+                addSystemMessage("You have been promoted to Room Host.");
+                updateUserList();
+                
+                // Re-establish mesh: In a real app, you'd send a 'reconnect' 
+                // signal to existing peers here.
+            });
+        
+            // Re-attach all listeners (connection, call, error) as before...
         }
 
         function setupMediaConnection(call) {
@@ -272,6 +325,7 @@
                 updateUserList();
             }
         }
+
 
         // --- Chat & UI Functions ---
 
@@ -353,3 +407,4 @@
     </script>
 </body>
 </html>
+
