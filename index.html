@@ -167,17 +167,22 @@
                 </div>
 
                 <div id="chat-panel" class="absolute right-0 top-0 bottom-0 w-80 bg-[--theme-pure-white] border-l border-[--theme-muted-green] shadow-2xl translate-x-full z-40 flex flex-col">
-                    <div class="p-6 border-b border-[--theme-muted-green] flex justify-between items-center">
-                        <span class="text-[10px] font-black tracking-[0.3em] text-[--theme-dark-green] uppercase">Data Stream</span>
-                        <button onclick="toggleChat()" class="text-[--theme-light-grey] hover:text-black">✕</button>
-                    </div>
-                    <div id="chat-messages" class="flex-1 overflow-y-auto p-6 flex flex-col">
+                    <div class="p-6 border-b border-[--theme-muted-green]">
+                        <div class="flex justify-between items-center mb-4">
+                            <span class="text-[10px] font-black tracking-[0.3em] text-[--theme-dark-green] uppercase">Data Stream</span>
+                            <button onclick="toggleChat()" class="text-[--theme-light-grey] hover:text-black">✕</button>
                         </div>
+                        <div class="flex bg-[--theme-deep-green] p-1 rounded-xl border border-[--theme-muted-green]">
+                            <button id="freq-local" onclick="setFrequency('local')" class="flex-1 py-1.5 text-[8px] font-black uppercase tracking-widest rounded-lg transition-all bg-[--theme-dark-green] text-white">Local</button>
+                            <button id="freq-global" onclick="setFrequency('global')" class="flex-1 py-1.5 text-[8px] font-black uppercase tracking-widest rounded-lg transition-all text-[--theme-light-grey]">Global</button>
+                        </div>
+                    </div>
+                    <div id="chat-messages" class="flex-1 overflow-y-auto p-6 flex flex-col"></div>
                     <div class="p-4 border-t border-[--theme-muted-green] bg-[--theme-white]">
                         <form onsubmit="handleSendMessage(event)" class="flex gap-2">
-                            <input id="chat-input" type="text" placeholder="Transmit message..." class="flex-1 bg-[--theme-deep-green] border border-[--theme-muted-green] rounded-full px-4 py-2 text-xs focus:outline-none focus:border-[--theme-dark-green]">
-                            <button type="submit" class="w-10 h-10 rounded-full bg-[--theme-dark-green] text-white flex items-center justify-center hover:scale-105 transition-transform">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                            <input id="chat-input" type="text" placeholder="Transmit..." class="flex-1 bg-[--theme-deep-green] border border-[--theme-muted-green] rounded-full px-4 py-2 text-xs focus:outline-none">
+                            <button type="submit" class="w-10 h-10 rounded-full bg-[--theme-dark-green] text-white flex items-center justify-center">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="22 2 11 13"></polyline><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                             </button>
                         </form>
                     </div>
@@ -254,8 +259,14 @@
                 }
                 // CHAT DATA HANDLING
                 if (data.type === 'chat') {
-                    appendMessage(data.sender, data.text, false);
-                    if (!isChatOpen) document.getElementById('chat-badge').classList.remove('hidden');
+                    // Logic: If message is GLOBAL, show it. If LOCAL, only show if we are in the same room.
+                    const isGlobal = data.scope === 'global';
+                    const sameRoom = data.roomId === currentSubRoom;
+                    
+                    if (isGlobal || sameRoom) {
+                        appendMessage(data.sender, data.text, false, data.scope, data.roomId);
+                        if (!isChatOpen) document.getElementById('chat-badge').classList.remove('hidden');
+                    }
                 }
             });
             conn.on('close', () => { delete connections[conn.peer]; });
@@ -306,34 +317,53 @@
             panel.style.transform = isChatOpen ? 'translateX(0)' : 'translateX(100%)';
             if (isChatOpen) document.getElementById('chat-badge').classList.add('hidden');
         }
+        
+        let chatFrequency = 'local'; // Default frequency
+
+        function setFrequency(freq) {
+            chatFrequency = freq;
+            const isLocal = freq === 'local';
+            document.getElementById('freq-local').className = `flex-1 py-1.5 text-[8px] font-black uppercase tracking-widest rounded-lg transition-all ${isLocal ? 'bg-[--theme-dark-green] text-white' : 'text-[--theme-light-grey]'}`;
+            document.getElementById('freq-global').className = `flex-1 py-1.5 text-[8px] font-black uppercase tracking-widest rounded-lg transition-all ${!isLocal ? 'bg-[--theme-dark-green] text-white' : 'text-[--theme-light-grey]'}`;
+        }
 
         function handleSendMessage(e) {
             e.preventDefault();
             const input = document.getElementById('chat-input');
             const text = input.value.trim();
             if (!text) return;
-
+        
             const msgPacket = {
                 type: 'chat',
                 sender: prefs.username,
-                text: text
+                text: text,
+                scope: chatFrequency,
+                roomId: currentSubRoom // Attached so receivers can filter
             };
-
-            // Send to all connected peers
+        
+            // Broadcast to all nodes
             Object.values(connections).forEach(conn => conn.send(msgPacket));
             
-            appendMessage('You', text, true);
+            // Display locally with a tag
+            appendMessage('You', text, true, chatFrequency, currentSubRoom);
             input.value = '';
         }
 
-        function appendMessage(sender, text, isLocal) {
+        function appendMessage(sender, text, isLocal, scope, roomId) {
             const container = document.getElementById('chat-messages');
             const msgDiv = document.createElement('div');
             msgDiv.className = `chat-msg ${isLocal ? 'msg-local' : 'msg-remote'}`;
             
+            // Create a label based on the scope
+            const roomName = subRooms[roomId] || 'Unknown';
+            const scopeLabel = scope === 'global' ? 'GLOBAL' : `# ${roomName}`;
+            
             msgDiv.innerHTML = `
-                <div class="text-[8px] font-black uppercase tracking-widest opacity-60 mb-1">${sender}</div>
-                <div>${text}</div>
+                <div class="flex justify-between items-center gap-4 mb-1 opacity-50">
+                    <span class="text-[7px] font-black uppercase tracking-widest">${sender}</span>
+                    <span class="text-[7px] font-bold uppercase tracking-tighter bg-black/10 px-1 rounded">${scopeLabel}</span>
+                </div>
+                <div class="text-sm">${text}</div>
             `;
             
             container.appendChild(msgDiv);
@@ -363,3 +393,4 @@
     </script>
 </body>
 </html>
+
