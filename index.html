@@ -84,6 +84,7 @@
                 <div class="sidebar-header">
                     <h2 id="display-room-name">Room Name</h2>
                     <p id="display-username">Username</p>
+                    <button onclick="leaveRoom()" style="margin-top: 10px; background-color: #e74c3c; font-size: 13px;">Leave Room</button>
                 </div>
                 <ul class="user-list" id="user-list-ui">
                     </ul>
@@ -252,12 +253,17 @@
                 updateUserList();
                 
                 // Re-establish mesh: In a real app, you'd send a 'reconnect' 
+                connectToPeer(newHostId, false);
                 if (!isHost) {
                     // Connect to the host to get introduced to the mesh
                     connectToPeer(newHostId, true);
                 }
              });
                 // signal to existing peers here.
+                if (!isHost) {
+                    // Connect to the host to get introduced to the mesh
+                    connectToPeer(newHostId, true);
+                }
             });
         
             // Re-attach all listeners (connection, call, error) as before...
@@ -283,6 +289,46 @@
                 const audioElement = document.getElementById(`audio-${call.peer}`);
                 if (audioElement) audioElement.remove();
             });
+        }
+        function leaveRoom() {
+            if (!confirm("Are you sure you want to leave the chat?")) return;
+        
+            // 1. Stop the Microphone (Release the hardware)
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+        
+            // 2. Close all Peer Connections
+            // This triggers the 'close' event on everyone else's side
+            Object.keys(connectedPeers).forEach(peerId => {
+                if (connectedPeers[peerId].conn) {
+                    connectedPeers[peerId].conn.close();
+                }
+                if (connectedPeers[peerId].call) {
+                    connectedPeers[peerId].call.close();
+                }
+                
+                // Remove their audio elements from our DOM
+                const audioEl = document.getElementById(`audio-${peerId}`);
+                if (audioEl) audioEl.remove();
+            });
+        
+            // 3. Destroy the Peer Instance
+            // This tells the PeerJS server we are no longer online
+            if (peer) {
+                peer.destroy();
+            }
+        
+            // 4. UI Reset
+            document.getElementById('chat-screen').style.display = 'none';
+            document.getElementById('setup-screen').style.display = 'block';
+            
+            // Clear local state
+            for (let member in connectedPeers) delete connectedPeers[member];
+            document.getElementById('messages-ui').innerHTML = '<div class="message system">Welcome to the mesh network. Voice is active.</div>';
+            document.getElementById('user-list-ui').innerHTML = '';
+            
+            console.log("Gracefully left the room and released resources.");
         }
 
         // --- Data Handling ---
@@ -413,6 +459,7 @@
     </script>
 </body>
 </html>
+
 
 
 
