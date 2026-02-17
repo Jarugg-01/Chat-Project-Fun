@@ -254,17 +254,18 @@
                 
                 // Re-establish mesh: In a real app, you'd send a 'reconnect' 
                 connectToPeer(newHostId, false);
+                
                 if (!isHost) {
                     // Connect to the host to get introduced to the mesh
                     connectToPeer(newHostId, true);
                 }
+                
              });
                 // signal to existing peers here.
                 if (!isHost) {
                     // Connect to the host to get introduced to the mesh
                     connectToPeer(newHostId, true);
                 }
-            });
         
             // Re-attach all listeners (connection, call, error) as before...
         }
@@ -459,6 +460,7 @@
     </script>
 </body>
 </html>
+
 
 
 
