@@ -292,7 +292,8 @@
 
                 // Listen for Data Connections (Incoming)
                 peer.on('connection', (conn) => {
-                    connections.push(conn)
+                    connections.push(conn);
+                    console.log(conn);
                     setupDataConnection(conn);
                 });
 
@@ -361,6 +362,7 @@
     </script>
 </body>
 </html>
+
 
 
 
