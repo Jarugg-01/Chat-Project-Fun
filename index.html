@@ -281,6 +281,7 @@
                                     if (!dataConn) {
                                         const conn = peer.connect(`${roomName}-host`);
                                         connections.push(conn);
+                                        console.log(conn);
                                         setupDataConnection(conn);
                                     }
                                     
@@ -293,7 +294,7 @@
                 // Listen for Data Connections (Incoming)
                 peer.on('connection', (conn) => {
                     connections.push(conn);
-                    console.log(conn);
+                    
                     setupDataConnection(conn);
                 });
 
@@ -362,6 +363,7 @@
     </script>
 </body>
 </html>
+
 
 
 
