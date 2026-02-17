@@ -155,125 +155,94 @@
 
 <script>
     let peer = null;
-    let myStream = null;
-    let connections = {}; // Store data connections
-    let participants = new Set();
-    let userName = "";
-    let roomID = "";
+let myStream = null;
+let connections = {}; 
+let userName = "";
+let roomID = "";
 
-    async function startSession() {
-        userName = document.getElementById('username').value;
-        roomID = document.getElementById('roomname').value;
+async function startSession() {
+    userName = document.getElementById('username').value.trim();
+    roomID = document.getElementById('roomname').value.trim();
 
-        if(!userName || !roomID) return alert("Please fill in both fields");
-
-        try {
-            myStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-            // Use roomID as the base for the Peer ID to find each other
-            // In a real P2P mesh, we'd use a server to list IDs, but here we use predictable IDs.
-            initPeer();
-        } catch (e) {
-            alert("Microphone access is required.");
-        }
+    if (!userName || !roomID) {
+        alert("Please fill in both fields");
+        return;
     }
 
-    function initPeer() {
-        // Create a unique ID for ourselves
-        const myPeerId = roomID + "--" + Math.random().toString(36).substr(2, 9);
-        peer = new Peer(myPeerId);
+    // 1. Immediately switch the UI so you aren't stuck on the join screen
+    document.getElementById('setup-screen').style.display = 'none';
+    document.getElementById('main-screen').style.display = 'flex';
+    addParticipant(userName, true);
+
+    try {
+        // 2. Request Mic access
+        myStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        console.log("Microphone access granted");
+        
+        // 3. Initialize Peer with a random ID
+        // We use a random ID for everyone and then use a "Broadcaster" logic
+        peer = new Peer(); 
 
         peer.on('open', (id) => {
-            document.getElementById('setup-screen').style.display = 'none';
-            document.getElementById('main-screen').style.display = 'flex';
-            
-            addParticipant(userName, true);
-            
-            // Logic: Try to find others by querying the PeerJS server for IDs starting with our roomID
-            // Note: Public PeerJS doesn't allow "listAll". We instead "Broadcast" ourselves 
-            // by attempting to connect to the "Host" (the room name itself).
-            connectToHost();
+            console.log("My Peer ID is: " + id);
+            // In a real serverless setup, you'd need to know at least ONE ID.
+            // For testing, let's prompt for the 'Host's ID' or use a hardcoded room host.
+            // Since we don't have a backend, we'll try to connect to the ROOM NAME itself.
+            connectToPeer(roomID); 
         });
 
-        // Handle incoming text data (chat + new peer alerts)
+        // Handle incoming calls (Voice)
+        peer.on('call', (call) => {
+            call.answer(myStream);
+            handleVoiceStream(call);
+        });
+
+        // Handle incoming data (Text)
         peer.on('connection', (conn) => {
             setupDataHandlers(conn);
         });
 
-        // Handle incoming voice calls
-        peer.on('call', (call) => {
-            call.answer(myStream);
-            const audio = document.createElement('audio');
-            call.on('stream', (remoteStream) => {
-                audio.srcObject = remoteStream;
-                audio.play();
-            });
-        });
+    } catch (e) {
+        console.error(e);
+        alert("Error: " + e.message + ". Make sure you are using HTTPS or localhost.");
     }
+}
 
-    function connectToHost() {
-        // Attempt to connect to the "Room ID" directly (assuming someone is the host)
-        // This is a simplified discovery method for serverless P2P.
-        const conn = peer.connect(roomID); 
-        setupDataHandlers(conn);
-    }
+function connectToPeer(targetID) {
+    // We attempt to connect to the Room ID. 
+    // If someone is already 'The Host' with that ID, we link up.
+    const conn = peer.connect(targetID);
+    setupDataHandlers(conn);
+    
+    // Call them too
+    const call = peer.call(targetID, myStream);
+    if (call) handleVoiceStream(call);
+}
 
-    function setupDataHandlers(conn) {
-        conn.on('open', () => {
-            connections[conn.peer] = conn;
-            conn.send({ type: 'join', name: userName });
-            
-            // Also initiate voice call
-            const call = peer.call(conn.peer, myStream);
-            const audio = document.createElement('audio');
-            call.on('stream', (remoteStream) => {
-                audio.srcObject = remoteStream;
-                audio.play();
-            });
-        });
-
-        conn.on('data', (data) => {
-            if(data.type === 'chat') appendMsg(data.name, data.text);
-            if(data.type === 'join') {
-                appendMsg("System", `${data.name} joined.`);
-                addParticipant(data.name);
-            }
-        });
-    }
-
-    function handleSend() {
-        const input = document.getElementById('msgInput');
-        const text = input.value;
-        if(!text) return;
-
-        appendMsg("Me", text);
-        Object.values(connections).forEach(conn => {
-            conn.send({ type: 'chat', name: userName, text: text });
-        });
-        input.value = "";
-    }
-
-    function appendMsg(user, text) {
-        const msgDiv = document.getElementById('messages');
-        const el = document.createElement('div');
-        el.className = 'message';
-        el.innerHTML = `<b>${user}</b> ${text}`;
-        msgDiv.appendChild(el);
-        msgDiv.scrollTop = msgDiv.scrollHeight;
-    }
-
-    function addParticipant(name, isMe = false) {
-        const list = document.getElementById('user-list');
-        const el = document.createElement('div');
-        el.className = 'user-tag';
-        el.innerText = name + (isMe ? " (You)" : "");
-        list.appendChild(el);
-    }
-
-    // Handle Enter key for chat
-    document.getElementById('msgInput')?.addEventListener('keypress', (e) => {
-        if(e.key === 'Enter') handleSend();
+function setupDataHandlers(conn) {
+    conn.on('open', () => {
+        connections[conn.peer] = conn;
+        conn.send({ type: 'join', name: userName });
     });
+
+    conn.on('data', (data) => {
+        if (data.type === 'chat') appendMsg(data.name, data.text);
+        if (data.type === 'join') {
+            appendMsg("System", `${data.name} joined the room.`);
+            addParticipant(data.name);
+        }
+    });
+}
+
+function handleVoiceStream(call) {
+    call.on('stream', (remoteStream) => {
+        const audio = document.createElement('audio');
+        audio.srcObject = remoteStream;
+        audio.play();
+    });
+}
 </script>
 
 </body>
 </html>
+
