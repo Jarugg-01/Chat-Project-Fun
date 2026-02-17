@@ -3,246 +3,353 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VoiceMesh | Simple P2P Chat</title>
+    <title>Mesh Voice & Text Chat</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root {
-            --primary: #6366f1;
-            --bg: #f8fafc;
-            --card: #ffffff;
-            --text: #1e293b;
+            --bg-color: #f4f4f9;
+            --panel-bg: #ffffff;
+            --primary: #4a90e2;
+            --primary-hover: #357abd;
+            --text-main: #333;
+            --text-muted: #888;
+            --border: #e0e0e0;
         }
-
-        body {
-            font-family: 'Inter', system-ui, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-
-        .container {
-            background: var(--card);
-            width: 90%;
-            max-width: 800px;
-            height: 600px;
-            border-radius: 16px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); height: 100vh; display: flex; align-items: center; justify-content: center; }
+        
         /* Setup Screen */
-        #setup-screen {
-            padding: 40px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            justify-content: center;
-            height: 100%;
-        }
-
-        .input-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        input {
-            padding: 12px;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 1rem;
-            outline: none;
-        }
-
-        input:focus { border-color: var(--primary); }
-
-        .btn {
-            background: var(--primary);
-            color: white;
-            padding: 14px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: filter 0.2s;
-        }
-
-        .btn:hover { filter: brightness(1.1); }
-
-        /* Main Chat Screen */
-        #main-screen { display: none; flex-direction: row; height: 100%; }
-
-        #sidebar {
-            width: 200px;
-            border-right: 1px solid #f1f5f9;
-            padding: 20px;
-            background: #fcfcfd;
-        }
-
-        #chat-area {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
-        }
-
-        #messages {
-            flex: 1;
-            overflow-y: auto;
-            margin-bottom: 20px;
-            padding-right: 10px;
-        }
-
-        .message {
-            margin-bottom: 12px;
-            font-size: 0.95rem;
-            line-height: 1.4;
-        }
-
-        .message b { color: var(--primary); margin-right: 5px; }
-
-        .user-tag {
-            display: block;
-            padding: 6px 10px;
-            background: #eef2ff;
-            color: var(--primary);
-            border-radius: 6px;
-            margin-bottom: 8px;
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-
-        .controls { display: flex; gap: 10px; }
-        .controls input { flex: 1; }
+        #setup-screen { background: var(--panel-bg); padding: 40px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.1); width: 350px; text-align: center; }
+        #setup-screen h1 { margin-bottom: 20px; font-size: 24px; color: var(--primary); }
+        .input-group { margin-bottom: 15px; text-align: left; }
+        .input-group label { display: block; font-size: 14px; margin-bottom: 5px; color: var(--text-muted); }
+        .input-group input { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 16px; outline: none; }
+        .input-group input:focus { border-color: var(--primary); }
+        .btn-group { display: flex; gap: 10px; margin-top: 20px; }
+        button { flex: 1; padding: 10px; border: none; border-radius: 6px; background-color: var(--primary); color: white; font-size: 16px; cursor: pointer; transition: background 0.2s; }
+        button:hover { background-color: var(--primary-hover); }
+        
+        /* Chat Screen */
+        #chat-screen { display: none; width: 90%; max-width: 1000px; height: 85vh; background: var(--panel-bg); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.1); overflow: hidden; }
+        .chat-container { display: flex; height: 100%; }
+        
+        /* Sidebar (Users) */
+        .sidebar { width: 250px; background: #fafafa; border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+        .sidebar-header { padding: 20px; border-bottom: 1px solid var(--border); background: var(--primary); color: white; }
+        .sidebar-header h2 { font-size: 18px; margin-bottom: 5px; }
+        .sidebar-header p { font-size: 12px; opacity: 0.8; }
+        .user-list { list-style: none; padding: 20px; overflow-y: auto; flex: 1; }
+        .user-list li { display: flex; align-items: center; margin-bottom: 15px; font-size: 15px; }
+        .status-dot { width: 10px; height: 10px; background-color: #2ecc71; border-radius: 50%; margin-right: 10px; }
+        
+        /* Main Chat Area */
+        .main-chat { flex: 1; display: flex; flex-direction: column; }
+        .messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .message { max-width: 70%; padding: 10px 15px; border-radius: 18px; line-height: 1.4; }
+        .message.system { align-self: center; background: #eee; color: var(--text-muted); font-size: 12px; padding: 5px 15px; border-radius: 12px; }
+        .message.others { align-self: flex-start; background: #f0f0f0; border-bottom-left-radius: 4px; }
+        .message.self { align-self: flex-end; background: var(--primary); color: white; border-bottom-right-radius: 4px; }
+        .message-sender { font-size: 11px; margin-bottom: 4px; opacity: 0.7; }
+        
+        /* Input Area */
+        .input-area { padding: 15px 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; background: #fff; }
+        .input-area input { flex: 1; padding: 12px 15px; border: 1px solid var(--border); border-radius: 20px; outline: none; font-size: 15px; }
+        .input-area button { flex: none; width: 80px; border-radius: 20px; }
+        
+        /* Hidden Audio Container */
+        #audio-container { display: none; }
     </style>
 </head>
 <body>
 
-<div class="container">
     <div id="setup-screen">
-        <h2 style="margin:0; text-align:center;">VoiceMesh</h2>
+        <h1>Join a Room</h1>
         <div class="input-group">
-            <label>Display Name</label>
-            <input type="text" id="username" placeholder="Enter your name...">
+            <label>Username</label>
+            <input type="text" id="username-input" placeholder="Enter your name">
         </div>
         <div class="input-group">
             <label>Room Name</label>
-            <input type="text" id="roomname" placeholder="Enter room ID...">
+            <input type="text" id="room-input" placeholder="e.g. coffee-break">
         </div>
-        <button class="btn" onclick="startSession()">Enter Room</button>
+        <div class="btn-group">
+            <button onclick="joinRoom(true)">Host Room</button>
+            <button onclick="joinRoom(false)">Join Room</button>
+        </div>
     </div>
 
-    <div id="main-screen">
-        <div id="sidebar">
-            <h4 style="margin-top:0">Participants</h4>
-            <div id="user-list"></div>
-        </div>
-        <div id="chat-area">
-            <div id="messages"></div>
-            <div class="controls">
-                <input type="text" id="msgInput" placeholder="Send a message...">
-                <button class="btn" onclick="handleSend()">Send</button>
+    <div id="chat-screen">
+        <div class="chat-container">
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <h2 id="display-room-name">Room Name</h2>
+                    <p id="display-username">Username</p>
+                </div>
+                <ul class="user-list" id="user-list-ui">
+                    </ul>
+            </div>
+            <div class="main-chat">
+                <div class="messages" id="messages-ui">
+                    <div class="message system">Welcome to the mesh network. Voice is active.</div>
+                </div>
+                <div class="input-area">
+                    <input type="text" id="chat-input" placeholder="Type a message..." onkeypress="handleKeyPress(event)">
+                    <button onclick="sendTextMessage()">Send</button>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<script>
-    let peer = null;
-let myStream = null;
-let connections = {}; 
-let userName = "";
-let roomID = "";
+    <div id="audio-container"></div>
 
-async function startSession() {
-    userName = document.getElementById('username').value.trim();
-    roomID = document.getElementById('roomname').value.trim();
-
-    if (!userName || !roomID) {
-        alert("Please fill in both fields");
-        return;
-    }
-
-    // 1. Immediately switch the UI so you aren't stuck on the join screen
-    document.getElementById('setup-screen').style.display = 'none';
-    document.getElementById('main-screen').style.display = 'flex';
-    addParticipant(userName, true);
-
-    try {
-        // 2. Request Mic access
-        myStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        console.log("Microphone access granted");
+    <script>
+        let peer;
+        let localStream;
+        let myUsername;
+        let isHost = false;
         
-        // 3. Initialize Peer with a random ID
-        // We use a random ID for everyone and then use a "Broadcaster" logic
-        peer = new Peer(); 
+        // Mesh state
+        // connectedPeers[peerId] = { conn: DataConnection, call: MediaConnection, username: string }
+        const connectedPeers = {}; 
 
-        peer.on('open', (id) => {
-            console.log("My Peer ID is: " + id);
-            // In a real serverless setup, you'd need to know at least ONE ID.
-            // For testing, let's prompt for the 'Host's ID' or use a hardcoded room host.
-            // Since we don't have a backend, we'll try to connect to the ROOM NAME itself.
-            connectToPeer(roomID); 
-        });
+        async function joinRoom(hostStatus) {
+            myUsername = document.getElementById('username-input').value.trim();
+            const roomName = document.getElementById('room-input').value.trim();
+            
+            if (!myUsername || !roomName) {
+                alert("Please enter both Username and Room Name.");
+                return;
+            }
 
-        // Handle incoming calls (Voice)
-        peer.on('call', (call) => {
-            call.answer(myStream);
-            handleVoiceStream(call);
-        });
+            isHost = hostStatus;
+            
+            // 1. Get Local Microphone Audio
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            } catch (err) {
+                alert("Microphone access is required for voice chat.");
+                console.error(err);
+                return;
+            }
 
-        // Handle incoming data (Text)
-        peer.on('connection', (conn) => {
-            setupDataHandlers(conn);
-        });
+            // 2. Initialize Peer
+            // If host, we deterministically set the ID. If joiner, we get a random ID.
+            const peerId = isHost ? `mesh-room-${roomName}-host` : undefined;
+            peer = new Peer(peerId);
 
-    } catch (e) {
-        console.error(e);
-        alert("Error: " + e.message + ". Make sure you are using HTTPS or localhost.");
-    }
-}
+            peer.on('open', (id) => {
+                showChatScreen(roomName);
+                updateUserList();
 
-function connectToPeer(targetID) {
-    // We attempt to connect to the Room ID. 
-    // If someone is already 'The Host' with that ID, we link up.
-    const conn = peer.connect(targetID);
-    setupDataHandlers(conn);
-    
-    // Call them too
-    const call = peer.call(targetID, myStream);
-    if (call) handleVoiceStream(call);
-}
+                if (!isHost) {
+                    // Connect to the host to get introduced to the mesh
+                    const hostId = `mesh-room-${roomName}-host`;
+                    connectToPeer(hostId, true);
+                }
+            });
 
-function setupDataHandlers(conn) {
-    conn.on('open', () => {
-        connections[conn.peer] = conn;
-        conn.send({ type: 'join', name: userName });
-    });
+            // Handle incoming data connections
+            peer.on('connection', (conn) => {
+                setupDataConnection(conn);
+            });
 
-    conn.on('data', (data) => {
-        if (data.type === 'chat') appendMsg(data.name, data.text);
-        if (data.type === 'join') {
-            appendMsg("System", `${data.name} joined the room.`);
-            addParticipant(data.name);
+            // Handle incoming voice calls
+            peer.on('call', (call) => {
+                call.answer(localStream); // Answer with our mic
+                setupMediaConnection(call);
+            });
+
+            peer.on('error', (err) => {
+                console.error("PeerJS Error:", err);
+                if (err.type === 'unavailable-id') {
+                    alert("Room is already hosted. Try joining instead.");
+                    location.reload();
+                } else if (err.type === 'peer-unavailable' && !isHost) {
+                    alert("Host not found. Check the room name or host it yourself.");
+                    location.reload();
+                }
+            });
         }
-    });
-}
 
-function handleVoiceStream(call) {
-    call.on('stream', (remoteStream) => {
-        const audio = document.createElement('audio');
-        audio.srcObject = remoteStream;
-        audio.play();
-    });
-}
-</script>
+        // --- Connection Setup ---
 
+        function connectToPeer(targetPeerId, isConnectingToHost = false) {
+            if (connectedPeers[targetPeerId] || targetPeerId === peer.id) return;
+            
+            const conn = peer.connect(targetPeerId);
+            setupDataConnection(conn, isConnectingToHost);
+
+            const call = peer.call(targetPeerId, localStream);
+            setupMediaConnection(call);
+        }
+
+        function setupDataConnection(conn, isConnectingToHost = false) {
+            conn.on('open', () => {
+                // Introduce ourselves
+                conn.send({ type: 'identity', username: myUsername });
+
+                if (!connectedPeers[conn.peer]) {
+                    connectedPeers[conn.peer] = { conn: conn, call: null, username: 'Unknown' };
+                } else {
+                    connectedPeers[conn.peer].conn = conn;
+                }
+            });
+
+            conn.on('data', (data) => {
+                handleIncomingData(conn.peer, data);
+            });
+
+            conn.on('close', () => {
+                removePeer(conn.peer);
+            });
+        }
+
+        function setupMediaConnection(call) {
+            if (!connectedPeers[call.peer]) {
+                connectedPeers[call.peer] = { conn: null, call: call, username: 'Unknown' };
+            } else {
+                connectedPeers[call.peer].call = call;
+            }
+
+            call.on('stream', (remoteStream) => {
+                // Play remote audio
+                const audioElement = document.createElement('audio');
+                audioElement.srcObject = remoteStream;
+                audioElement.autoplay = true;
+                audioElement.id = `audio-${call.peer}`;
+                document.getElementById('audio-container').appendChild(audioElement);
+            });
+
+            call.on('close', () => {
+                const audioElement = document.getElementById(`audio-${call.peer}`);
+                if (audioElement) audioElement.remove();
+            });
+        }
+
+        // --- Data Handling ---
+
+        function handleIncomingData(peerId, data) {
+            if (data.type === 'identity') {
+                connectedPeers[peerId].username = data.username;
+                addSystemMessage(`${data.username} joined the room.`);
+                updateUserList();
+
+                // If we are the host, introduce this new peer to everyone else
+                if (isHost) {
+                    // Tell the newcomer about all existing peers
+                    const existingPeersList = Object.keys(connectedPeers)
+                        .filter(id => id !== peerId)
+                        .map(id => ({ id: id, username: connectedPeers[id].username }));
+                    
+                    if (existingPeersList.length > 0) {
+                        connectedPeers[peerId].conn.send({ type: 'introductions', peers: existingPeersList });
+                    }
+                }
+            } 
+            else if (data.type === 'introductions' && !isHost) {
+                // Received introductions from the host, connect to the rest of the mesh
+                data.peers.forEach(p => {
+                    connectToPeer(p.id);
+                });
+            }
+            else if (data.type === 'chat') {
+                addChatMessage(connectedPeers[peerId].username || 'Unknown', data.text, 'others');
+            }
+        }
+
+        function removePeer(peerId) {
+            if (connectedPeers[peerId]) {
+                const username = connectedPeers[peerId].username;
+                addSystemMessage(`${username} left the room.`);
+                
+                if (connectedPeers[peerId].call) {
+                    connectedPeers[peerId].call.close();
+                }
+                const audioElement = document.getElementById(`audio-${peerId}`);
+                if (audioElement) audioElement.remove();
+
+                delete connectedPeers[peerId];
+                updateUserList();
+            }
+        }
+
+        // --- Chat & UI Functions ---
+
+        function sendTextMessage() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            // Broadcast to all peers in the mesh
+            Object.values(connectedPeers).forEach(p => {
+                if (p.conn && p.conn.open) {
+                    p.conn.send({ type: 'chat', text: text });
+                }
+            });
+
+            addChatMessage('You', text, 'self');
+            input.value = '';
+        }
+
+        function handleKeyPress(e) {
+            if (e.key === 'Enter') sendTextMessage();
+        }
+
+        function addChatMessage(sender, text, type) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${type}`;
+            
+            const senderDiv = document.createElement('div');
+            senderDiv.className = 'message-sender';
+            senderDiv.textContent = sender;
+            
+            const textDiv = document.createElement('div');
+            textDiv.textContent = text;
+
+            msgDiv.appendChild(senderDiv);
+            msgDiv.appendChild(textDiv);
+
+            const container = document.getElementById('messages-ui');
+            container.appendChild(msgDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function addSystemMessage(text) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message system';
+            msgDiv.textContent = text;
+            const container = document.getElementById('messages-ui');
+            container.appendChild(msgDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function updateUserList() {
+            const listUI = document.getElementById('user-list-ui');
+            listUI.innerHTML = '';
+
+            // Add self
+            const selfLi = document.createElement('li');
+            selfLi.innerHTML = `<div class="status-dot"></div> ${myUsername} (You) ${isHost ? '👑' : ''}`;
+            listUI.appendChild(selfLi);
+
+            // Add others
+            Object.values(connectedPeers).forEach(p => {
+                if (p.username) {
+                    const li = document.createElement('li');
+                    // Check if this peer is the host by looking at their ID string
+                    const isPeerHost = p.conn && p.conn.peer.includes('-host');
+                    li.innerHTML = `<div class="status-dot"></div> ${p.username} ${isPeerHost ? '👑' : ''}`;
+                    listUI.appendChild(li);
+                }
+            });
+        }
+
+        function showChatScreen(roomName) {
+            document.getElementById('setup-screen').style.display = 'none';
+            document.getElementById('chat-screen').style.display = 'block';
+            document.getElementById('display-room-name').textContent = `Room: ${roomName}`;
+            document.getElementById('display-username').textContent = `Playing as ${myUsername}`;
+        }
+    </script>
 </body>
 </html>
-
